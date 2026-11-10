@@ -1,0 +1,106 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-900 antialiased;
+  }
+}
+
+/* TipTap Rich Text Editor Canvas Styling */
+.ProseMirror {
+  outline: none;
+  min-height: 540px;
+}
+
+.ProseMirror p.is-editor-empty:first-child::before {
+  color: #94a3b8;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+.ProseMirror h1 {
+  @apply text-3xl font-bold tracking-tight text-slate-900 mt-6 mb-3;
+}
+
+.ProseMirror h2 {
+  @apply text-2xl font-semibold tracking-tight text-slate-800 mt-5 mb-2.5;
+}
+
+.ProseMirror h3 {
+  @apply text-xl font-semibold text-slate-800 mt-4 mb-2;
+}
+
+.ProseMirror p {
+  @apply text-base leading-7 text-slate-700 mb-3;
+}
+
+.ProseMirror ul:not([data-type="taskList"]) {
+  @apply list-disc pl-6 mb-3 space-y-1 text-slate-700;
+}
+
+.ProseMirror ol {
+  @apply list-decimal pl-6 mb-3 space-y-1 text-slate-700;
+}
+
+.ProseMirror ul[data-type="taskList"] {
+  @apply list-none pl-1 mb-3 space-y-1.5;
+}
+
+.ProseMirror ul[data-type="taskList"] li {
+  @apply flex items-start gap-2.5;
+}
+
+.ProseMirror ul[data-type="taskList"] li > label {
+  @apply mt-1 select-none flex items-center;
+}
+
+.ProseMirror ul[data-type="taskList"] li > label input[type="checkbox"] {
+  @apply h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer;
+}
+
+.ProseMirror ul[data-type="taskList"] li > div {
+  @apply flex-1;
+}
+
+.ProseMirror ul[data-type="taskList"] li[data-checked="true"] > div {
+  @apply line-through text-slate-400;
+}
+
+.ProseMirror blockquote {
+  @apply border-l-4 border-indigo-400 bg-indigo-50/40 pl-4 py-1.5 my-4 italic text-slate-700 rounded-r;
+}
+
+.ProseMirror code {
+  @apply bg-slate-100 text-indigo-700 px-1.5 py-0.5 rounded text-sm font-mono;
+}
+
+.ProseMirror pre {
+  @apply bg-slate-900 text-slate-100 p-4 rounded-lg my-4 overflow-x-auto font-mono text-sm;
+}
+
+.ProseMirror pre code {
+  @apply bg-transparent text-inherit p-0;
+}
+
+.ProseMirror hr {
+  @apply border-slate-200 my-6;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: white !important;
+  }
+  .print-sheet {
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+  }
+}
+
