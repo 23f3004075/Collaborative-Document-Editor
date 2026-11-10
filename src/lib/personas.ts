@@ -2,6 +2,8 @@ import type { User } from "@/types/domain";
 
 export const DEFAULT_PERSONA_ID = "user_alex";
 export const PERSONA_COOKIE_NAME = "ajaia_persona_id";
+export const SESSION_COOKIE_NAME = "ajaia_session";
+export const DEMO_USER_PASSWORD = "ajaia123";
 
 export const SEEDED_PERSONAS: readonly User[] = [
   {
@@ -11,6 +13,8 @@ export const SEEDED_PERSONAS: readonly User[] = [
     roleTitle: "Engineering Lead",
     avatarColor: "bg-indigo-600",
     initials: "AR",
+    systemRole: "ADMIN",
+    approvalStatus: "APPROVED",
   },
   {
     id: "user_sarah",
@@ -19,6 +23,8 @@ export const SEEDED_PERSONAS: readonly User[] = [
     roleTitle: "Product Manager",
     avatarColor: "bg-emerald-600",
     initials: "SC",
+    systemRole: "MEMBER",
+    approvalStatus: "APPROVED",
   },
   {
     id: "user_jordan",
@@ -27,6 +33,8 @@ export const SEEDED_PERSONAS: readonly User[] = [
     roleTitle: "UX Designer",
     avatarColor: "bg-amber-600",
     initials: "JT",
+    systemRole: "MEMBER",
+    approvalStatus: "APPROVED",
   },
 ] as const;
 
@@ -40,4 +48,3 @@ export function resolveValidPersonaId(candidateId?: string | null): string {
   }
   return DEFAULT_PERSONA_ID;
 }
-

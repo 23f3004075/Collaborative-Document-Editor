@@ -12,6 +12,7 @@ import CharacterCount from "@tiptap/extension-character-count";
 import {
   AlertTriangle,
   ArrowLeft,
+  Check,
   CheckCircle2,
   CloudOff,
   Download,
@@ -19,8 +20,11 @@ import {
   Loader2,
   Paperclip,
   Printer,
+  Send,
   Share2,
+  X,
 } from "lucide-react";
+import { usePersona } from "@/context/PersonaContext";
 import { canEditDocument } from "@/lib/permissions";
 import { htmlToMarkdown, htmlToPlainText } from "@/lib/fileExport";
 import type {
@@ -31,7 +35,7 @@ import type {
 import { AttachmentsDrawer } from "./AttachmentsDrawer";
 import { EditorToolbar } from "./EditorToolbar";
 import { Navbar } from "./Navbar";
-import { RoleBadge } from "./RoleBadge";
+import { ApprovalBadge, RoleBadge } from "./RoleBadge";
 import { ShareModal } from "./ShareModal";
 
 type SaveStatus = "saved" | "saving" | "unsaved" | "error";
@@ -75,6 +79,7 @@ function SaveStatusPill({ status }: { status: SaveStatus }) {
 export function DocumentEditorClient({
   initialDocument,
 }: DocumentEditorClientProps) {
+  const { activeUser } = usePersona();
   const [doc, setDoc] = useState<DocumentDetail>(initialDocument);
   const [title, setTitle] = useState(initialDocument.title);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved");
@@ -82,8 +87,10 @@ export function DocumentEditorClient({
   const [shareOpen, setShareOpen] = useState(false);
   const [attachmentsOpen, setAttachmentsOpen] = useState(false);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const [approvalBusy, setApprovalBusy] = useState(false);
 
   const canEdit = canEditDocument(doc.accessRole);
+  const isAdmin = activeUser?.systemRole === "ADMIN";
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestTitleRef = useRef(title);
   latestTitleRef.current = title;
@@ -241,6 +248,37 @@ export function DocumentEditorClient({
     }));
   }
 
+  async function handleApprovalAction(action: "REQUEST" | "APPROVE" | "REJECT") {
+    setApprovalBusy(true);
+    setSaveError(null);
+    try {
+      const res = await fetch(`/api/documents/${doc.id}/approval`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const data = (await res.json()) as {
+        document?: DocumentDetail;
+        error?: string;
+      };
+      if (!res.ok || !data.document) {
+        throw new Error(data.error ?? "Failed to update approval status");
+      }
+      setDoc((prev) => ({
+        ...prev,
+        approvalStatus: data.document!.approvalStatus,
+        reviewedBy: data.document!.reviewedBy,
+        reviewedAt: data.document!.reviewedAt,
+      }));
+    } catch (err) {
+      setSaveError(
+        err instanceof Error ? err.message : "Could not update approval status"
+      );
+    } finally {
+      setApprovalBusy(false);
+    }
+  }
+
   const wordCount = editor?.storage.characterCount.words() ?? 0;
   const charCount = editor?.storage.characterCount.characters() ?? 0;
   const readingMinutes = Math.max(1, Math.ceil(wordCount / 200));
@@ -274,16 +312,54 @@ export function DocumentEditorClient({
       <Navbar rightSlot={titleSlot} />
 
       <div className="no-print bg-white border-b border-slate-200 px-4 sm:px-6 py-2 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2 text-xs text-slate-500">
+        <div className="flex items-center gap-2.5 text-xs text-slate-500 flex-wrap">
           <span>
             Owner: <strong className="text-slate-700">{doc.owner.name}</strong>
           </span>
           {doc.shares.length > 0 && (
             <span>• Shared with {doc.shares.length} teammate(s)</span>
           )}
+          <ApprovalBadge status={doc.approvalStatus} />
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {canEdit &&
+            (doc.approvalStatus === "DRAFT" ||
+              doc.approvalStatus === "REJECTED") && (
+              <button
+                type="button"
+                disabled={approvalBusy}
+                onClick={() => void handleApprovalAction("REQUEST")}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-200 bg-amber-50 hover:bg-amber-100 text-xs font-medium text-amber-800 disabled:opacity-50"
+              >
+                <Send className="w-3.5 h-3.5" />
+                Request Approval
+              </button>
+            )}
+
+          {isAdmin && doc.approvalStatus !== "APPROVED" && (
+            <button
+              type="button"
+              disabled={approvalBusy}
+              onClick={() => void handleApprovalAction("APPROVE")}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-medium text-white disabled:opacity-50"
+            >
+              <Check className="w-3.5 h-3.5" />
+              Approve
+            </button>
+          )}
+
+          {isAdmin && doc.approvalStatus === "PENDING_APPROVAL" && (
+            <button
+              type="button"
+              disabled={approvalBusy}
+              onClick={() => void handleApprovalAction("REJECT")}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 text-xs font-medium disabled:opacity-50"
+            >
+              <X className="w-3.5 h-3.5" />
+              Reject
+            </button>
+          )}
           <div className="relative">
             <button
               type="button"

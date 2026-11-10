@@ -50,6 +50,45 @@ export const shareDocumentSchema = z.object({
   permission: z.enum(["EDIT", "VIEW"]),
 });
 
+export const loginSchema = z.object({
+  email: z.string().trim().email("Please enter a valid email address"),
+  password: z.string().min(1, "Password is required"),
+});
+
+export const registerSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(2, "Full name must be at least 2 characters")
+    .max(80, "Full name must be 80 characters or fewer"),
+  email: z.string().trim().email("Please enter a valid email address"),
+  roleTitle: z
+    .string()
+    .trim()
+    .min(2, "Role title must be at least 2 characters")
+    .max(60, "Role title must be 60 characters or fewer")
+    .default("Team Member"),
+  password: z
+    .string()
+    .min(6, "Password must be at least 6 characters")
+    .max(128, "Password must be 128 characters or fewer"),
+});
+
+export const adminUpdateUserSchema = z
+  .object({
+    systemRole: z.enum(["ADMIN", "MEMBER"]).optional(),
+    approvalStatus: z.enum(["APPROVED", "PENDING", "REJECTED"]).optional(),
+  })
+  .refine(
+    (data) =>
+      data.systemRole !== undefined || data.approvalStatus !== undefined,
+    { message: "Provide systemRole or approvalStatus to update" }
+  );
+
+export const documentApprovalSchema = z.object({
+  action: z.enum(["REQUEST", "APPROVE", "REJECT"]),
+});
+
 export function getFileExtension(fileName: string): string {
   const lastDot = fileName.lastIndexOf(".");
   if (lastDot === -1) return "";

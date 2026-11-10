@@ -1,8 +1,10 @@
 import Link from "next/link";
-import { ShieldAlert, ArrowLeft } from "lucide-react";
+import { redirect } from "next/navigation";
+import { ArrowLeft, ShieldAlert } from "lucide-react";
 import { DocumentEditorClient } from "@/components/DocumentEditorClient";
 import { Navbar } from "@/components/Navbar";
-import { getActivePersonaIdFromCookies } from "@/lib/auth";
+import { PendingApprovalScreen } from "@/components/PendingApprovalScreen";
+import { getAuthenticatedUserFromCookies } from "@/lib/auth";
 import { ForbiddenError, NotFoundError } from "@/lib/errors";
 import { getDocumentById } from "@/lib/repositories/documentRepository";
 
@@ -14,10 +16,16 @@ interface DocPageProps {
 
 export default async function DocumentPage({ params }: DocPageProps) {
   const { id } = await params;
-  const activeUserId = await getActivePersonaIdFromCookies();
+  const activeUser = await getAuthenticatedUserFromCookies();
+  if (!activeUser) {
+    redirect("/login");
+  }
+  if (activeUser.approvalStatus !== "APPROVED") {
+    return <PendingApprovalScreen user={activeUser} />;
+  }
 
   try {
-    const document = await getDocumentById(id, activeUserId);
+    const document = await getDocumentById(id, activeUser.id);
     return <DocumentEditorClient initialDocument={document} />;
   } catch (error) {
     const isForbidden = error instanceof ForbiddenError;
@@ -28,7 +36,7 @@ export default async function DocumentPage({ params }: DocPageProps) {
         ? "Document Not Found"
         : "Unable to Open Document";
     const description = isForbidden
-      ? "The currently selected persona does not have permission to view this document. Switch personas in the header or return to your dashboard."
+      ? "The currently signed-in account does not have permission to view this document. Switch accounts or return to your dashboard."
       : "This document may have been deleted or the link is invalid.";
 
     return (
@@ -54,4 +62,3 @@ export default async function DocumentPage({ params }: DocPageProps) {
     );
   }
 }
-

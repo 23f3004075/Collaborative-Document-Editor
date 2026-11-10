@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getActivePersonaIdFromRequest } from "@/lib/auth";
+import { requireApprovedUserFromRequest } from "@/lib/auth";
 import { handleApiError } from "@/lib/apiResponse";
 import { ValidationError } from "@/lib/errors";
 import { parseImportedFileContent } from "@/lib/fileImport";
@@ -7,7 +7,7 @@ import { createDocument } from "@/lib/repositories/documentRepository";
 
 export async function POST(request: Request): Promise<NextResponse> {
   try {
-    const activeUserId = getActivePersonaIdFromRequest(request);
+    const activeUser = await requireApprovedUserFromRequest(request);
     const formData = await request.formData();
     const fileEntry = formData.get("file");
 
@@ -22,7 +22,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       rawText
     );
 
-    const created = await createDocument(activeUserId, {
+    const created = await createDocument(activeUser.id, {
       title: parsed.title,
       contentHtml: parsed.contentHtml,
       contentJson: "{}",
@@ -33,4 +33,3 @@ export async function POST(request: Request): Promise<NextResponse> {
     return handleApiError("POST /api/documents/import", error);
   }
 }
-

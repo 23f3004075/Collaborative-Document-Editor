@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import type { DocumentWithAccess } from "@/types/domain";
 import { htmlToPlainText } from "@/lib/fileExport";
-import { RoleBadge, UserAvatar } from "./RoleBadge";
+import { ApprovalBadge, RoleBadge, UserAvatar } from "./RoleBadge";
 
 interface DocumentCardProps {
   document: DocumentWithAccess;
@@ -56,7 +56,10 @@ export function DocumentCard({
               {document.title}
             </h3>
           </Link>
-          <RoleBadge role={document.accessRole} />
+          <div className="flex flex-col items-end gap-1 shrink-0">
+            <RoleBadge role={document.accessRole} />
+            <ApprovalBadge status={document.approvalStatus} />
+          </div>
         </div>
 
         <Link href={`/doc/${document.id}`} className="block mt-2">

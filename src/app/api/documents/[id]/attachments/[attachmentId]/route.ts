@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getActivePersonaIdFromRequest } from "@/lib/auth";
+import { requireApprovedUserFromRequest } from "@/lib/auth";
 import { handleApiError } from "@/lib/apiResponse";
 import {
   deleteDocumentAttachment,
@@ -16,8 +16,8 @@ export async function GET(
 ): Promise<NextResponse> {
   try {
     const { id, attachmentId } = await context.params;
-    const activeUserId = getActivePersonaIdFromRequest(request);
-    const attachment = await getAttachmentWithData(id, attachmentId, activeUserId);
+    const activeUser = await requireApprovedUserFromRequest(request);
+    const attachment = await getAttachmentWithData(id, attachmentId, activeUser.id);
     const buffer = Buffer.from(attachment.contentBase64, "base64");
 
     return new NextResponse(buffer, {
@@ -42,8 +42,8 @@ export async function DELETE(
 ): Promise<NextResponse> {
   try {
     const { id, attachmentId } = await context.params;
-    const activeUserId = getActivePersonaIdFromRequest(request);
-    await deleteDocumentAttachment(id, attachmentId, activeUserId);
+    const activeUser = await requireApprovedUserFromRequest(request);
+    await deleteDocumentAttachment(id, attachmentId, activeUser.id);
     return NextResponse.json({ deleted: true });
   } catch (error) {
     return handleApiError(
@@ -52,4 +52,3 @@ export async function DELETE(
     );
   }
 }
-

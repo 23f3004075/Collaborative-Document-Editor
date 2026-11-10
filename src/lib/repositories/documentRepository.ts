@@ -29,6 +29,7 @@ import {
   mapShareRow,
   mapUserRow,
 } from "./mappers";
+import { findUserById, requireAdminUser } from "./userRepository";
 
 async function loadUsersMap(client: DbClient): Promise<Map<string, User>> {
   const result = await client.execute("SELECT * FROM users ORDER BY name ASC");
@@ -166,7 +167,14 @@ export async function getDocumentById(
 ): Promise<DocumentDetail> {
   const client = await ensureDbInitialized();
   const { doc, shares, usersMap } = await fetchRawDocumentAndShares(client, docId);
-  const role = resolveDocumentAccess(doc.ownerId, activeUserId, shares);
+  const directRole = resolveDocumentAccess(doc.ownerId, activeUserId, shares);
+  const activeUser = usersMap.get(activeUserId);
+  const isAdminReviewingPending =
+    !directRole &&
+    activeUser?.systemRole === "ADMIN" &&
+    activeUser.approvalStatus === "APPROVED" &&
+    doc.approvalStatus === "PENDING_APPROVAL";
+  const role = directRole ?? (isAdminReviewingPending ? "VIEW" : null);
 
   if (!canViewDocument(role) || !role) {
     throw new ForbiddenError("You do not have access to view this document");
@@ -204,8 +212,11 @@ export async function createDocument(
 
   await client.execute({
     sql: `
-      INSERT INTO documents (id, title, content_html, content_json, owner_id, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO documents (
+        id, title, content_html, content_json, owner_id,
+        approval_status, created_at, updated_at
+      )
+      VALUES (?, ?, ?, ?, ?, 'DRAFT', ?, ?)
     `,
     args: [id, input.title, input.contentHtml, input.contentJson, ownerId, now, now],
   });
@@ -408,5 +419,102 @@ export async function deleteDocumentAttachment(
     sql: "DELETE FROM attachments WHERE id = ? AND document_id = ?",
     args: [attachmentId, docId],
   });
+}
+
+export async function updateDocumentApproval(
+  docId: string,
+  activeUserId: string,
+  action: "REQUEST" | "APPROVE" | "REJECT"
+): Promise<DocumentDetail> {
+  const client = await ensureDbInitialized();
+  const { doc, shares } = await fetchRawDocumentAndShares(client, docId);
+  const now = new Date().toISOString();
+
+  if (action === "REQUEST") {
+    const role = resolveDocumentAccess(doc.ownerId, activeUserId, shares);
+    if (!canEditDocument(role)) {
+      throw new ForbiddenError("Only owners or editors can request approval");
+    }
+    await client.execute({
+      sql: `
+        UPDATE documents
+        SET approval_status = 'PENDING_APPROVAL', reviewed_by = NULL, reviewed_at = NULL, updated_at = ?
+        WHERE id = ?
+      `,
+      args: [now, docId],
+    });
+    return getDocumentById(docId, activeUserId);
+  }
+
+  await requireAdminUser(activeUserId);
+  const nextStatus = action === "APPROVE" ? "APPROVED" : "REJECTED";
+  await client.execute({
+    sql: `
+      UPDATE documents
+      SET approval_status = ?, reviewed_by = ?, reviewed_at = ?, updated_at = ?
+      WHERE id = ?
+    `,
+    args: [nextStatus, activeUserId, now, now, docId],
+  });
+
+  const actor = await findUserById(activeUserId);
+  const role = resolveDocumentAccess(doc.ownerId, activeUserId, shares);
+  if (role) {
+    return getDocumentById(docId, activeUserId);
+  }
+
+  const usersMap = await loadUsersMap(client);
+  const owner = usersMap.get(doc.ownerId) ?? actor!;
+  const updatedDoc = await fetchRawDocumentAndShares(client, docId);
+  return {
+    ...updatedDoc.doc,
+    owner,
+    accessRole: "VIEW",
+    shares: updatedDoc.shares,
+    attachmentCount: 0,
+    attachments: [],
+  };
+}
+
+export async function listAllDocumentsForAdmin(
+  adminUserId: string
+): Promise<DocumentWithAccess[]> {
+  await requireAdminUser(adminUserId);
+  const client = await ensureDbInitialized();
+  const usersMap = await loadUsersMap(client);
+  const docsResult = await client.execute(`
+    SELECT * FROM documents
+    ORDER BY
+      CASE approval_status
+        WHEN 'PENDING_APPROVAL' THEN 0
+        WHEN 'REJECTED' THEN 1
+        WHEN 'DRAFT' THEN 2
+        ELSE 3
+      END,
+      updated_at DESC
+  `);
+
+  const docs = docsResult.rows.map(mapDocumentRow);
+  const docIds = docs.map((d) => d.id);
+  const [sharesMap, attachmentCounts] = await Promise.all([
+    loadSharesForDocuments(client, docIds, usersMap),
+    loadAttachmentCounts(client, docIds),
+  ]);
+
+  const items: DocumentWithAccess[] = [];
+  for (const doc of docs) {
+    const owner = usersMap.get(doc.ownerId);
+    if (!owner) continue;
+    const shares = sharesMap.get(doc.id) ?? [];
+    items.push({
+      ...doc,
+      owner,
+      accessRole:
+        resolveDocumentAccess(doc.ownerId, adminUserId, shares) ?? "VIEW",
+      shares,
+      attachmentCount: attachmentCounts.get(doc.id) ?? 0,
+    });
+  }
+  return items;
 }
 

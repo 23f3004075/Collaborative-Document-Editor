@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getActivePersonaIdFromRequest } from "@/lib/auth";
+import { requireApprovedUserFromRequest } from "@/lib/auth";
 import { handleApiError } from "@/lib/apiResponse";
 import { ValidationError } from "@/lib/errors";
 import {
@@ -18,13 +18,13 @@ export async function POST(
 ): Promise<NextResponse> {
   try {
     const { id } = await context.params;
-    const activeUserId = getActivePersonaIdFromRequest(request);
+    const activeUser = await requireApprovedUserFromRequest(request);
     const body: unknown = await request.json();
     const { targetUserId, permission } = shareDocumentSchema.parse(body);
 
     const updated = await upsertDocumentShare(
       id,
-      activeUserId,
+      activeUser.id,
       targetUserId,
       permission
     );
@@ -40,7 +40,7 @@ export async function DELETE(
 ): Promise<NextResponse> {
   try {
     const { id } = await context.params;
-    const activeUserId = getActivePersonaIdFromRequest(request);
+    const activeUser = await requireApprovedUserFromRequest(request);
     const url = new URL(request.url);
     const targetUserId = url.searchParams.get("userId");
 
@@ -48,10 +48,9 @@ export async function DELETE(
       throw new ValidationError("Query parameter 'userId' is required");
     }
 
-    const updated = await revokeDocumentShare(id, activeUserId, targetUserId);
+    const updated = await revokeDocumentShare(id, activeUser.id, targetUserId);
     return NextResponse.json({ document: updated });
   } catch (error) {
     return handleApiError("DELETE /api/documents/[id]/shares", error);
   }
 }
-

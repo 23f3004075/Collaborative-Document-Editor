@@ -23,11 +23,13 @@ A focused, full-stack collaborative document editor inspired by Google Docs, bui
    - **Viewer (`VIEW`):** Strict read-only mode (formatting toolbar hidden, editor non-editable, server-side `403 Forbidden` enforcement on mutations).
    - **Visible Segmentation:** Dashboard clearly separates **My Documents** (owned) from **Shared with Me** (with role badges and owner attribution).
 
-4. **Zero-Friction Seeded Team Personas**
-   Switch personas anytime using the top-right header switcher to test multi-user sharing immediately without creating accounts:
-   - **Alex Rivera** (`alex@ajaia.io` — Engineering Lead, default user)
-   - **Sarah Chen** (`sarah@ajaia.io` — Product Manager)
-   - **Jordan Taylor** (`jordan@ajaia.io` — UX Designer)
+4. **Authentication, Admin Role Assignment & Approvals**
+   - **Login & Sign Up (`/login`):** Email + salted `scrypt` password authentication backed by signed HttpOnly session cookies, plus **1-Click Demo Sign-In** cards for fast evaluation.
+   - **Admin Console (`/admin`):** **Alex Rivera** (Engineering Lead) starts with the **`ADMIN`** system role. Admins can approve/reject newly registered members, assign or remove the `ADMIN` role on any member, and approve or reject documents submitted via **Request Approval**.
+   - **Seeded Test Accounts (Password: `ajaia123`):**
+     - **Alex Rivera** (`alex@ajaia.io` — Engineering Lead, **Admin**)
+     - **Sarah Chen** (`sarah@ajaia.io` — Product Manager, Member)
+     - **Jordan Taylor** (`jordan@ajaia.io` — UX Designer, Member)
 
 ---
 

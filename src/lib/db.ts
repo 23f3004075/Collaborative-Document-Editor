@@ -2,7 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import initSqlJs, { type Database, type SqlValue } from "sql.js";
 import type { DbClient, DbRow } from "./dbTypes";
-import { SEEDED_PERSONAS } from "./personas";
+import { DEMO_USER_PASSWORD, SEEDED_PERSONAS } from "./personas";
+import { hashPassword } from "./security";
 import { createTursoHttpClient } from "./tursoHttp";
 
 export type { DbClient, DbQueryResult, DbRow, DbValue } from "./dbTypes";
@@ -114,7 +115,10 @@ async function createSchema(client: DbClient): Promise<void> {
       email TEXT NOT NULL UNIQUE,
       role_title TEXT NOT NULL,
       avatar_color TEXT NOT NULL,
-      initials TEXT NOT NULL
+      initials TEXT NOT NULL,
+      password_hash TEXT NOT NULL DEFAULT '',
+      system_role TEXT NOT NULL DEFAULT 'MEMBER' CHECK (system_role IN ('ADMIN', 'MEMBER')),
+      approval_status TEXT NOT NULL DEFAULT 'APPROVED' CHECK (approval_status IN ('APPROVED', 'PENDING', 'REJECTED'))
     );
 
     CREATE TABLE IF NOT EXISTS documents (
@@ -123,6 +127,9 @@ async function createSchema(client: DbClient): Promise<void> {
       content_html TEXT NOT NULL,
       content_json TEXT NOT NULL,
       owner_id TEXT NOT NULL,
+      approval_status TEXT NOT NULL DEFAULT 'DRAFT' CHECK (approval_status IN ('DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'REJECTED')),
+      reviewed_by TEXT,
+      reviewed_at TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
       FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
@@ -153,18 +160,39 @@ async function createSchema(client: DbClient): Promise<void> {
   `);
 }
 
+async function ensureColumn(
+  client: DbClient,
+  table: string,
+  column: string,
+  definition: string
+): Promise<void> {
+  const info = await client.execute(`PRAGMA table_info(${table})`);
+  const exists = info.rows.some((row) => String(row.name) === column);
+  if (!exists) {
+    await client.execute(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  }
+}
+
+async function migrateExistingTables(client: DbClient): Promise<void> {
+  await ensureColumn(client, "users", "password_hash", "TEXT NOT NULL DEFAULT ''");
+  await ensureColumn(client, "users", "system_role", "TEXT NOT NULL DEFAULT 'MEMBER'");
+  await ensureColumn(client, "users", "approval_status", "TEXT NOT NULL DEFAULT 'APPROVED'");
+  await ensureColumn(client, "documents", "approval_status", "TEXT NOT NULL DEFAULT 'DRAFT'");
+  await ensureColumn(client, "documents", "reviewed_by", "TEXT");
+  await ensureColumn(client, "documents", "reviewed_at", "TEXT");
+}
+
 async function seedUsers(client: DbClient): Promise<void> {
+  const defaultPasswordHash = hashPassword(DEMO_USER_PASSWORD);
   for (const persona of SEEDED_PERSONAS) {
     await client.execute({
       sql: `
-        INSERT INTO users (id, name, email, role_title, avatar_color, initials)
-        VALUES (?, ?, ?, ?, ?, ?)
-        ON CONFLICT(id) DO UPDATE SET
-          name = excluded.name,
-          email = excluded.email,
-          role_title = excluded.role_title,
-          avatar_color = excluded.avatar_color,
-          initials = excluded.initials
+        INSERT INTO users (
+          id, name, email, role_title, avatar_color, initials,
+          password_hash, system_role, approval_status
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO NOTHING
       `,
       args: [
         persona.id,
@@ -173,8 +201,21 @@ async function seedUsers(client: DbClient): Promise<void> {
         persona.roleTitle,
         persona.avatarColor,
         persona.initials,
+        defaultPasswordHash,
+        persona.systemRole,
+        persona.approvalStatus,
       ],
     });
+    await client.execute({
+      sql: `UPDATE users SET password_hash = ? WHERE id = ? AND (password_hash IS NULL OR password_hash = '')`,
+      args: [defaultPasswordHash, persona.id],
+    });
+    if (persona.id === "user_alex") {
+      await client.execute({
+        sql: `UPDATE users SET system_role = 'ADMIN' WHERE id = 'user_alex' AND system_role IS NULL`,
+        args: [],
+      });
+    }
   }
 }
 
@@ -189,18 +230,27 @@ async function seedStarterDocuments(client: DbClient): Promise<void> {
       id: "doc_q4_roadmap",
       title: "Q4 Product Architecture & AI Roadmap",
       ownerId: "user_alex",
-      html: `<h1>Q4 Product Architecture &amp; AI Roadmap</h1><p>Welcome to <strong>Ajaia Docs</strong>! This document outlines our internal collaboration workflow and architecture priorities for Q4.</p><h2>Core Priorities</h2><ul><li><p><strong>Low-Friction Editing:</strong> Fast rich-text authoring with debounced persistence.</p></li><li><p><strong>Scoped Access Control:</strong> Clear distinction between <em>Owned</em> and <em>Shared</em> documents.</p></li><li><p><strong>File Ingestion:</strong> Import <code>.md</code> or <code>.txt</code> briefs directly into editable drafts.</p></li></ul><blockquote><p>Note: Switch personas in the top-right header to test Editor vs. Viewer permissions immediately.</p></blockquote>`,
+      approvalStatus: "APPROVED",
+      reviewedBy: "user_alex",
+      reviewedAt: now,
+      html: `<h1>Q4 Product Architecture &amp; AI Roadmap</h1><p>Welcome to <strong>Ajaia Docs</strong>! This document outlines our internal collaboration workflow and architecture priorities for Q4.</p><h2>Core Priorities</h2><ul><li><p><strong>Low-Friction Editing:</strong> Fast rich-text authoring with debounced persistence.</p></li><li><p><strong>Scoped Access Control:</strong> Clear distinction between <em>Owned</em> and <em>Shared</em> documents.</p></li><li><p><strong>File Ingestion:</strong> Import <code>.md</code> or <code>.txt</code> briefs directly into editable drafts.</p></li></ul><blockquote><p>Note: Use Admin Console or switch personas to test approvals and Editor vs. Viewer permissions.</p></blockquote>`,
     },
     {
       id: "doc_collab_spec",
       title: "Ajaia Internal Collaboration Spec",
       ownerId: "user_sarah",
-      html: `<h1>Internal Collaboration Spec</h1><p>This specification is owned by <strong>Sarah Chen</strong> and shared with <strong>Alex Rivera</strong> with <u>Edit</u> access.</p><h2>Meeting Action Items</h2><ol><li><p>Finalize document schema and share permissions API.</p></li><li><p>Verify Markdown and plain text file import edge cases.</p></li><li><p>Review typography and toolbar accessibility.</p></li></ol>`,
+      approvalStatus: "PENDING_APPROVAL",
+      reviewedBy: null,
+      reviewedAt: null,
+      html: `<h1>Internal Collaboration Spec</h1><p>This specification is owned by <strong>Sarah Chen</strong>, shared with <strong>Alex Rivera</strong> (Lead Engineer), and currently <u>Pending Approval</u>.</p><h2>Meeting Action Items</h2><ol><li><p>Finalize document schema and share permissions API.</p></li><li><p>Verify Markdown and plain text file import edge cases.</p></li><li><p>Review typography and toolbar accessibility.</p></li></ol>`,
     },
     {
       id: "doc_design_guide",
       title: "Design System & Typography Guidelines",
       ownerId: "user_jordan",
+      approvalStatus: "DRAFT",
+      reviewedBy: null,
+      reviewedAt: null,
       html: `<h1>Design System &amp; Typography Guidelines</h1><p>This guideline is owned by <strong>Jordan Taylor</strong> and shared with <strong>Alex Rivera</strong> as <u>View Only</u>.</p><h3>Visual Principles</h3><ul><li><p>Crisp paper-on-canvas document surface</p></li><li><p>High-contrast accessible formatting controls</p></li><li><p>Clear role badges for Owners, Editors, and Viewers</p></li></ul>`,
     },
   ];
@@ -208,10 +258,24 @@ async function seedStarterDocuments(client: DbClient): Promise<void> {
   for (const doc of starterDocs) {
     await client.execute({
       sql: `
-        INSERT INTO documents (id, title, content_html, content_json, owner_id, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO documents (
+          id, title, content_html, content_json, owner_id,
+          approval_status, reviewed_by, reviewed_at, created_at, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
-      args: [doc.id, doc.title, doc.html, "{}", doc.ownerId, now, now],
+      args: [
+        doc.id,
+        doc.title,
+        doc.html,
+        "{}",
+        doc.ownerId,
+        doc.approvalStatus,
+        doc.reviewedBy,
+        doc.reviewedAt,
+        now,
+        now,
+      ],
     });
   }
 
@@ -238,6 +302,7 @@ export async function ensureDbInitialized(): Promise<DbClient> {
     initPromise = (async () => {
       const client = await openDatabase();
       await createSchema(client);
+      await migrateExistingTables(client);
       await seedUsers(client);
       await seedStarterDocuments(client);
     })().catch((err) => {

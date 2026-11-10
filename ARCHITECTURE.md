@@ -52,7 +52,7 @@ Four normalized relational tables in `src/lib/db.ts`:
 | Decision | Choice Made | Alternative Considered | Rationale |
 | :--- | :--- | :--- | :--- |
 | **Persistence Sync** | `600ms` debounced auto-save over REST (`PATCH`) | WebSocket CRDT (`Yjs` + `Hocuspocus`) | CRDT servers introduce stateful socket hosting complexity and conflict edge cases unsuitable for a 4–6h serverless-ready timebox. |
-| **Auth / Identity** | Cookie-backed Seeded Persona Switcher | OAuth / Email-Password JWT | Eliminates reviewer signup overhead while keeping real server-side user isolation and authorization checks intact. |
+| **Auth / Identity** | Email/password auth (`scrypt` + HMAC-SHA256 `HttpOnly` cookie) + 1-click Demo Login | External OAuth / Auth0 | Provides genuine login, pending signup approvals, and Admin role assignment with zero external OAuth dependencies while preserving fast reviewer testing. |
 | **Database Driver** | `sql.js` (local WASM SQLite) + zero-dependency Turso HTTP adapter (`src/lib/tursoHttp.ts`) | `better-sqlite3` or `@libsql/client` native bindings | Eliminates OS-specific native addon mismatches (Windows vs. WSL/Linux `@libsql/linux-x64-gnu`) locally while delivering shared multi-lambda persistence on Vercel via standard `fetch`. |
 | **File Import Scope** | `.txt` and `.md` only | `.docx` / `.pdf` parsing | Native Markdown and plain text parsing via `marked` + HTML escaping avoids fragile native/WASM office parsers and clearly sets user expectations in UI and docs. |
 

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getActivePersonaIdFromRequest } from "@/lib/auth";
+import { requireApprovedUserFromRequest } from "@/lib/auth";
 import { handleApiError } from "@/lib/apiResponse";
 import { ValidationError } from "@/lib/errors";
 import { addDocumentAttachment } from "@/lib/repositories/documentRepository";
@@ -15,7 +15,7 @@ export async function POST(
 ): Promise<NextResponse> {
   try {
     const { id } = await context.params;
-    const activeUserId = getActivePersonaIdFromRequest(request);
+    const activeUser = await requireApprovedUserFromRequest(request);
     const formData = await request.formData();
     const fileEntry = formData.get("file");
 
@@ -31,7 +31,7 @@ export async function POST(
     const arrayBuffer = await fileEntry.arrayBuffer();
     const contentBase64 = Buffer.from(arrayBuffer).toString("base64");
 
-    const attachment = await addDocumentAttachment(id, activeUserId, {
+    const attachment = await addDocumentAttachment(id, activeUser.id, {
       fileName: fileEntry.name,
       mimeType: fileEntry.type || "application/octet-stream",
       fileSize: fileEntry.size,
@@ -43,4 +43,3 @@ export async function POST(
     return handleApiError("POST /api/documents/[id]/attachments", error);
   }
 }
-

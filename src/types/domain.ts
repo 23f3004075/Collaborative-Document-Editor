@@ -1,5 +1,12 @@
 export type ShareRole = "EDIT" | "VIEW";
 export type PermissionLevel = "OWNER" | ShareRole;
+export type SystemRole = "ADMIN" | "MEMBER";
+export type UserApprovalStatus = "APPROVED" | "PENDING" | "REJECTED";
+export type DocumentApprovalStatus =
+  | "DRAFT"
+  | "PENDING_APPROVAL"
+  | "APPROVED"
+  | "REJECTED";
 
 export interface User {
   id: string;
@@ -8,6 +15,8 @@ export interface User {
   roleTitle: string;
   avatarColor: string;
   initials: string;
+  systemRole: SystemRole;
+  approvalStatus: UserApprovalStatus;
 }
 
 export interface DocumentRecord {
@@ -16,6 +25,9 @@ export interface DocumentRecord {
   contentHtml: string;
   contentJson: string;
   ownerId: string;
+  approvalStatus: DocumentApprovalStatus;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -58,4 +70,3 @@ export interface UserDocumentCollections {
   owned: DocumentWithAccess[];
   shared: DocumentWithAccess[];
 }
-

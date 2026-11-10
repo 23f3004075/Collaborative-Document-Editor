@@ -21,31 +21,33 @@
 
 ---
 
-## 2. Test Accounts / Seeded Personas
+## 2. Test Accounts & Login Credentials
 
-No signup or credentials are required. Use the **Switch Team Persona** menu in the top-right navigation bar:
+Sign in at `/login` using email/password (all seeded accounts use password **`ajaia123`**) or click any **1-Click Demo Sign-In** card, then use the top-right header menu to switch demo accounts or access the **Admin Console** (`/admin`):
 
-1. **Alex Rivera** (`alex@ajaia.io`) — Engineering Lead *(Default Persona; owns "Q4 Product Architecture & AI Roadmap")*
-2. **Sarah Chen** (`sarah@ajaia.io`) — Product Manager *(Owns "Ajaia Internal Collaboration Spec"; Editor on Alex's roadmap)*
-3. **Jordan Taylor** (`jordan@ajaia.io`) — UX Designer *(Owns "Design System & Typography Guidelines"; Viewer on Alex's roadmap)*
+1. **Alex Rivera** (`alex@ajaia.io` / `ajaia123`) — Engineering Lead (**Admin** — can approve pending members, assign Admin roles, and approve/reject documents)
+2. **Sarah Chen** (`sarah@ajaia.io` / `ajaia123`) — Product Manager (Member; owns "Ajaia Internal Collaboration Spec" currently *Pending Approval*)
+3. **Jordan Taylor** (`jordan@ajaia.io` / `ajaia123`) — UX Designer (Member; owns "Design System & Typography Guidelines")
 
 ---
 
 ## 3. Feature Status
 
 ### What Is Working End to End
+- **Login & Registration (`/login`):** Salted `scrypt` password auth, signed `HttpOnly` session cookies, self-registration (`PENDING` status until Admin approval), and 1-click demo login.
+- **Admin Console (`/admin`):** Approve/reject pending signups, assign/revoke `ADMIN` role to team members, and approve/reject documents (`Request Approval` → `Approved` / `Changes Requested`).
 - Create, rename, edit, auto-save (`600ms` debounce + `Ctrl+S`), reopen, and delete documents.
 - Rich-text editing: Headings (`H1–H3`), Bold, Italic, Underline, Strikethrough, Inline Code, Bulleted Lists, Numbered Lists, Checklists, Blockquotes, Horizontal Rules, Undo/Redo, Word/Character count.
 - File upload (`POST /api/documents/import`): Drag-and-drop `.txt` and `.md` ingestion into new formatted documents with client & server validation.
 - Document attachments (`POST/GET/DELETE /api/documents/[id]/attachments`): Upload, download, and remove reference files linked to a document.
 - Sharing & RBAC: Grant `Can Edit` or `Can View` permissions, update roles, revoke access, and separate **My Documents** vs **Shared with Me** tabs.
 - Export (Stretch): Download Markdown (`.md`), Plain Text (`.txt`), and Print / Save PDF.
-- Persistence: Relational SQLite / LibSQL persistence across refreshes and server restarts.
-- Automated verification: TypeScript strict typecheck, Vitest unit & integration tests, and Next.js production build.
+- Persistence: Cross-platform SQLite (`sql.js`) locally and Turso HTTP (`/v2/pipeline`) on Vercel.
+- Automated verification: TypeScript strict typecheck, ESLint, Vitest unit & integration tests, and Next.js production build.
 
 ### Intentionally Deprioritized
 - Real-time multi-cursor WebSocket CRDT syncing (e.g., Yjs) in favor of reliable debounced persistence and strict access control.
-- External OAuth / password authentication in favor of instant reviewer persona switching.
+- External third-party OAuth (Google/GitHub) in favor of built-in email/password auth + 1-click reviewer demo login.
 - Binary `.docx` parsing in favor of clean `.txt` / `.md` document ingestion plus generic file attachments.
 
 ### What I Would Build Next (With Another 2–4 Hours)
