@@ -210,12 +210,15 @@ async function seedUsers(client: DbClient): Promise<void> {
       sql: `UPDATE users SET password_hash = ? WHERE id = ? AND (password_hash IS NULL OR password_hash = '')`,
       args: [defaultPasswordHash, persona.id],
     });
-    if (persona.id === "user_alex") {
-      await client.execute({
-        sql: `UPDATE users SET system_role = 'ADMIN' WHERE id = 'user_alex' AND system_role IS NULL`,
-        args: [],
-      });
-    }
+  }
+
+  const admins = await client.execute(
+    "SELECT COUNT(*) as count FROM users WHERE system_role = 'ADMIN' AND approval_status = 'APPROVED'"
+  );
+  if (Number(admins.rows[0]?.count ?? 0) === 0) {
+    await client.execute(
+      "UPDATE users SET system_role = 'ADMIN', approval_status = 'APPROVED' WHERE id = 'user_alex'"
+    );
   }
 }
 

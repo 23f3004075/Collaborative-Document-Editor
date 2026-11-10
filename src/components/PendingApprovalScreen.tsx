@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Clock, LogOut, XCircle } from "lucide-react";
+import { Clock, LogOut, RefreshCw, XCircle } from "lucide-react";
 import { usePersona } from "@/context/PersonaContext";
 import type { User } from "@/types/domain";
 
@@ -33,16 +33,27 @@ export function PendingApprovalScreen({ user }: { user: User }) {
             ? `Hi ${user.name}, your workspace access request was declined by an Admin.`
             : `Hi ${user.name}, your account (${user.email}) has been created and is waiting for an Admin (e.g., Alex Rivera, Engineering Lead) to approve access.`}
         </p>
-        <button
-          type="button"
-          onClick={() => void logout()}
-          className="mt-6 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-sm font-medium text-slate-700 transition-colors"
-        >
-          <LogOut className="w-4 h-4" />
-          Sign Out
-        </button>
+        <div className="mt-6 flex items-center justify-center gap-3">
+          {!isRejected && (
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-sm font-medium text-white transition-colors"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Check Status
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => void logout()}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-sm font-medium text-slate-700 transition-colors"
+          >
+            <LogOut className="w-4 h-4" />
+            Sign Out
+          </button>
+        </div>
       </div>
     </div>
   );
 }
-

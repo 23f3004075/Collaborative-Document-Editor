@@ -1,6 +1,12 @@
 "use client";
 
-import React, { createContext, useCallback, useContext, useState } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 import { useRouter } from "next/navigation";
 import type { User } from "@/types/domain";
 
@@ -29,6 +35,10 @@ export function PersonaProvider({
   const router = useRouter();
   const [activeUser, setActiveUser] = useState<User | null>(initialUser);
   const [isSwitching, setIsSwitching] = useState(false);
+
+  useEffect(() => {
+    setActiveUser(initialUser);
+  }, [initialUser]);
 
   const switchPersona = useCallback(
     async (userId: string) => {

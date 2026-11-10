@@ -2,11 +2,13 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   AlertCircle,
   ArrowLeft,
   Check,
   FileCheck2,
+  RefreshCw,
   ShieldCheck,
   Users,
   X,
@@ -31,11 +33,36 @@ export function AdminConsoleClient({
   initialDocuments,
   currentAdminId,
 }: AdminConsoleClientProps) {
+  const router = useRouter();
   const [users, setUsers] = useState<User[]>(initialUsers);
   const [documents, setDocuments] =
     useState<DocumentWithAccess[]>(initialDocuments);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  async function refreshOverview() {
+    setIsRefreshing(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/overview", { cache: "no-store" });
+      const data = (await res.json()) as {
+        users?: User[];
+        documents?: DocumentWithAccess[];
+        error?: string;
+      };
+      if (!res.ok || !data.users || !data.documents) {
+        throw new Error(data.error ?? "Failed to refresh admin console");
+      }
+      setUsers(data.users);
+      setDocuments(data.documents);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Refresh failed");
+    } finally {
+      setIsRefreshing(false);
+    }
+  }
 
   async function updateUser(
     userId: string,
@@ -54,6 +81,7 @@ export function AdminConsoleClient({
         throw new Error(data.error ?? "Failed to update user");
       }
       setUsers((prev) => prev.map((u) => (u.id === userId ? data.user! : u)));
+      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Update failed");
     } finally {
@@ -139,11 +167,24 @@ export function AdminConsoleClient({
         )}
 
         <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
-            <Users className="w-4 h-4 text-indigo-600" />
-            <h2 className="text-sm font-semibold text-slate-900">
-              Team Members &amp; Role Assignment ({users.length})
-            </h2>
+          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Users className="w-4 h-4 text-indigo-600" />
+              <h2 className="text-sm font-semibold text-slate-900">
+                Team Members &amp; Role Assignment ({users.length})
+              </h2>
+            </div>
+            <button
+              type="button"
+              disabled={isRefreshing}
+              onClick={() => void refreshOverview()}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 hover:bg-slate-50 text-xs font-medium text-slate-600 disabled:opacity-50"
+            >
+              <RefreshCw
+                className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin" : ""}`}
+              />
+              Refresh
+            </button>
           </div>
 
           <div className="divide-y divide-slate-100">

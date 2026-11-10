@@ -39,7 +39,16 @@ export async function findUserById(userId: string): Promise<User | null> {
 
 export async function listAllUsers(): Promise<User[]> {
   const client = await ensureDbInitialized();
-  const result = await client.execute("SELECT * FROM users ORDER BY name ASC");
+  const result = await client.execute(`
+    SELECT * FROM users
+    ORDER BY
+      CASE approval_status
+        WHEN 'PENDING' THEN 0
+        WHEN 'REJECTED' THEN 1
+        ELSE 2
+      END,
+      name ASC
+  `);
   return result.rows.map(mapUserRow);
 }
 

@@ -77,6 +77,10 @@ describe("Authentication, Admin role assignment & approval workflow", () => {
       password: "secret123",
     });
 
+    // Pending user appears first in listAllUsers()
+    const allUsers = await userRepo.listAllUsers();
+    expect(allUsers[0]?.approvalStatus).toBe("PENDING");
+
     // Non-admin cannot approve or promote
     await expect(
       userRepo.adminUpdateUser("user_jordan", newUser.id, {
@@ -84,7 +88,12 @@ describe("Authentication, Admin role assignment & approval workflow", () => {
       })
     ).rejects.toThrow(ForbiddenError);
 
-    // Lead Engineer (Admin) approves new member
+    // Lead Engineer (Admin) can reject and then approve new member
+    const rejected = await userRepo.adminUpdateUser("user_alex", newUser.id, {
+      approvalStatus: "REJECTED",
+    });
+    expect(rejected.approvalStatus).toBe("REJECTED");
+
     const approved = await userRepo.adminUpdateUser("user_alex", newUser.id, {
       approvalStatus: "APPROVED",
     });
